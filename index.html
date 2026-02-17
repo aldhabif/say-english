@@ -182,7 +182,7 @@ function speakEnglish(text){
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-US";
-    u.rate = 0.95;
+    u.rate = 0.70;
     // Choose a clear English voice if available
     const voices = window.speechSynthesis.getVoices() || [];
     const preferred = voices.find(v => /en(-|_)US/i.test(v.lang) && /Google|Microsoft|Samsung|English/i.test(v.name)) 
