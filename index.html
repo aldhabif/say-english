@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Say it in English</title>
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    :root{--bg:#0b1220;--card:#111a2e;--text:#e8eefc;--muted:#9fb0d0;--accent:#4ea1ff;}
+    *{box-sizing:border-box;font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans Arabic", sans-serif;}
+    body{margin:0;min-height:100vh;background:radial-gradient(1200px 800px at 50% 10%, #162447 0%, var(--bg) 55%);color:var(--text);display:flex;align-items:center;justify-content:center;padding:16px;}
+    .app{width:min(560px, 100%);}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.08);
+      border-radius:24px; padding:18px 16px 16px; box-shadow:0 18px 60px rgba(0,0,0,.35);}
+    h1{margin:0 0 8px;font-size:20px;letter-spacing:.2px}
+    .sub{margin:0 0 14px;color:var(--muted);font-size:14px;line-height:1.5}
+    .micWrap{display:flex;justify-content:center;align-items:center;margin:18px 0 12px;}
+    .micBtn{
+      width:180px;height:180px;border-radius:999px;border:0; cursor:pointer;
+      background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), rgba(255,255,255,.06) 45%, rgba(0,0,0,.18) 100%);
+      outline:2px solid rgba(78,161,255,.35);
+      box-shadow: 0 18px 45px rgba(0,0,0,.4), inset 0 0 0 8px rgba(78,161,255,.10);
+      display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;
+      position:relative;
+      transition: transform .12s ease, outline-color .12s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .micBtn:active{transform:scale(.98)}
+    .micIcon{font-size:54px;line-height:1}
+    .micText{font-size:15px;color:var(--text);opacity:.95}
+    .listening{outline-color: rgba(78,161,255,.85)}
+    .pulse::after{
+      content:""; position:absolute; inset:-10px; border-radius:999px;
+      border:2px solid rgba(78,161,255,.55);
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse{
+      0%{transform:scale(.95);opacity:.9}
+      80%{transform:scale(1.12);opacity:0}
+      100%{transform:scale(1.12);opacity:0}
+    }
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:10px}
+    .box{flex:1 1 220px;background:rgba(17,26,46,.65);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:12px 12px}
+    .label{font-size:12px;color:var(--muted);margin-bottom:6px}
+    .value{font-size:18px;min-height:26px}
+    .en{font-size:28px;font-weight:700;letter-spacing:.4px}
+    .tiny{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.45}
+    .controls{display:flex;gap:10px;align-items:center;justify-content:flex-start;margin-top:12px;flex-wrap:wrap}
+    input{
+      flex:1 1 220px; padding:12px 12px;border-radius:14px;
+      border:1px solid rgba(255,255,255,.10); background:rgba(0,0,0,.18); color:var(--text);
+      outline:none;
+    }
+    .btn{
+      padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.10);
+      background:rgba(78,161,255,.16); color:var(--text); cursor:pointer;
+    }
+    .btn:active{transform:scale(.99)}
+    .warn{color:#ffd37a}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <h1>Say it in English</h1>
+      <p class="sub">اضغط الميكروفون وقل: «أبغى كلمة … بالإنجليزي». التطبيق سيقول الكلمة بالإنجليزي فقط.</p>
+
+      <div class="micWrap">
+        <button id="micBtn" class="micBtn" aria-label="Microphone">
+          <div class="micIcon">🎤</div>
+          <div class="micText" id="micText">اضغط وتكلم</div>
+        </button>
+      </div>
+
+      <div class="row">
+        <div class="box">
+          <div class="label">سمعت:</div>
+          <div class="value" id="heard">—</div>
+        </div>
+        <div class="box">
+          <div class="label">النتيجة:</div>
+          <div class="value en" id="result">—</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <input id="manual" placeholder="بديل: اكتب الكلمة بالعربي هنا (مثال: سيارة)" />
+        <button class="btn" id="goBtn">انطقها</button>
+      </div>
+
+      <div class="tiny">
+        <div>🔹 يعمل أفضل على Chrome (Android). قد تحتاج إنترنت للتعرف على الصوت.</div>
+        <div class="warn" id="status"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/** Minimal kids translator: Arabic speech -> pick target word -> offline dictionary -> speak English */
+
+let DICT = {};
+async function loadDict(){
+  try{
+    const res = await fetch("dictionary_ar_en.json", {cache:"no-store"});
+    DICT = await res.json();
+  }catch(e){
+    console.warn("Dictionary load failed, using empty.", e);
+    DICT = {};
+  }
+}
+loadDict();
+
+// Service worker
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
+
+const micBtn = document.getElementById("micBtn");
+const micText = document.getElementById("micText");
+const heardEl = document.getElementById("heard");
+const resultEl = document.getElementById("result");
+const statusEl = document.getElementById("status");
+const manualEl = document.getElementById("manual");
+const goBtn = document.getElementById("goBtn");
+
+function setStatus(msg){ statusEl.textContent = msg || ""; }
+
+function normalizeArabic(s){
+  return (s||"")
+    .replace(/[ـًٌٍَُِّْ]/g,"")   // remove tashkeel
+    .replace(/[إأآا]/g,"ا")
+    .replace(/ى/g,"ي")
+    .replace(/ؤ/g,"و")
+    .replace(/ئ/g,"ي")
+    .replace(/ة/g,"ه")
+    .replace(/[^\p{L}\p{N}\s]/gu," ")
+    .replace(/\s+/g," ")
+    .trim();
+}
+
+const STOP_WORDS = new Set([
+  "ابغى","ابي","أبي","اريد","أريد","كلمه","كلمة","بالانجليزي","بالانجليزية","بالإنجليزي","بالإنجليزية",
+  "وش","ما","معنى","يعني","ترجم","ترجمه","قول","قولي","قل","لي","لو","سمحت","من","فضلك","باللغة","انجليزي","إنجليزي","الانجليزي","الإنجليزي"
+].map(normalizeArabic));
+
+function extractTargetWord(raw){
+  const s = normalizeArabic(raw);
+  // Heuristic: try phrases like "كلمة X بالانجليزي"
+  let m = s.match(/كلمه\s+(.+?)\s+بالانجليزي/);
+  if(!m) m = s.match(/كلمة\s+(.+?)\s+بالانجليزي/);
+  if(!m) m = s.match(/ترجم\s+(.+)/);
+  if(!m) m = s.match(/وش\s+يعني\s+(.+?)\s+بالانجليزي/);
+  if(m && m[1]) return normalizeArabic(m[1]);
+
+  // Otherwise, remove stopwords and take the remaining tokens.
+  const tokens = s.split(" ").filter(t => t && !STOP_WORDS.has(t));
+  if(tokens.length === 0) return "";
+  // Prefer last token for simplicity (kids usually mention the target word once)
+  return tokens[tokens.length - 1];
+}
+
+function lookup(arWord){
+  if(!arWord) return "";
+  // Try exact
+  if(DICT[arWord]) return DICT[arWord];
+
+  // Try normalized-key match
+  const n = normalizeArabic(arWord);
+  if(DICT[n]) return DICT[n];
+
+  // Try scanning keys (small cost for 500 entries)
+  for(const k of Object.keys(DICT)){
+    if(normalizeArabic(k) === n) return DICT[k];
+  }
+  return "";
+}
+
+function speakEnglish(text){
+  if(!text) return;
+  try{
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    u.rate = 0.95;
+    // Choose a clear English voice if available
+    const voices = window.speechSynthesis.getVoices() || [];
+    const preferred = voices.find(v => /en(-|_)US/i.test(v.lang) && /Google|Microsoft|Samsung|English/i.test(v.name)) 
+                   || voices.find(v => /^en/i.test(v.lang));
+    if(preferred) u.voice = preferred;
+    window.speechSynthesis.speak(u);
+  }catch(e){
+    console.warn("TTS failed", e);
+  }
+}
+
+function showResult(en){
+  resultEl.textContent = en || "—";
+  if(en) speakEnglish(en);
+}
+
+function translateAndSpeak(ar){
+  const target = extractTargetWord(ar);
+  const en = lookup(target);
+  if(!target){
+    setStatus("ما فهمت الكلمة… جرّب مرة ثانية.");
+    showResult("");
+    return;
+  }
+  if(!en){
+    setStatus(`الكلمة غير موجودة في القاموس (500 كلمة). جرّب كلمة ثانية أو أضِفها للقاموس.`);
+    heardEl.textContent = `الكلمة: ${target}`;
+    showResult("");
+    return;
+  }
+  setStatus("");
+  heardEl.textContent = `الكلمة: ${target}`;
+  showResult(en);
+}
+
+// Manual input fallback
+goBtn.addEventListener("click", () => {
+  const ar = manualEl.value.trim();
+  if(!ar) return;
+  translateAndSpeak("كلمة " + ar + " بالانجليزي");
+});
+
+// Speech recognition
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null;
+let listening = false;
+
+function startListening(){
+  if(!SpeechRecognition){
+    setStatus("جهازك لا يدعم التعرف على الصوت في المتصفح. جرّب Chrome أو استخدم الكتابة.");
+    return;
+  }
+  if(listening) return;
+  recog = new SpeechRecognition();
+  recog.lang = "ar-SA";
+  recog.interimResults = false;
+  recog.maxAlternatives = 1;
+
+  listening = true;
+  micBtn.classList.add("listening","pulse");
+  micText.textContent = "أسمعك...";
+
+  recog.onresult = (event) => {
+    const text = event.results[0][0].transcript || "";
+    heardEl.textContent = text;
+    translateAndSpeak(text);
+  };
+  recog.onerror = (e) => {
+    console.warn(e);
+    setStatus("صار خطأ في الميكروفون/الصوت. تأكد من السماح بالمايك.");
+  };
+  recog.onend = () => {
+    listening = false;
+    micBtn.classList.remove("listening","pulse");
+    micText.textContent = "اضغط وتكلم";
+  };
+
+  try{ recog.start(); }catch(e){ listening = false; }
+}
+
+micBtn.addEventListener("click", startListening);
+
+// Some browsers load voices asynchronously
+window.speechSynthesis.onvoiceschanged = () => {};
+</script>
+</body>
+</html>
