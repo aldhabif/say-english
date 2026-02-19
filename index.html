@@ -1,153 +1,171 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>اختبار تحمّل الضغط</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>عالم المغامرات</title>
 <style>
-body{
-  background:#0f172a;
-  color:white;
-  font-family:Tahoma, Arial;
-  text-align:center;
-  padding:25px;
-}
-h1{margin-bottom:5px;}
-#scenario{margin:20px 0;font-size:18px;line-height:1.6;}
-button{
-  display:block;
-  width:100%;
-  max-width:420px;
-  margin:10px auto;
-  padding:14px;
-  border:none;
-  border-radius:10px;
-  font-size:16px;
-  background:#2563eb;
-  color:white;
-}
-button:active{transform:scale(.97);}
-#timer{margin:10px;font-size:16px;color:#38bdf8;}
-#result{margin-top:30px;line-height:1.8;}
+body{margin:0;font-family:Tahoma,Arial;background:#0f172a;color:#fff;padding:16px}
+.card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+border-radius:18px;padding:14px;margin:12px 0}
+button{width:100%;padding:14px;border:0;border-radius:14px;background:#2563eb;color:#fff;font-size:16px;margin-top:8px}
+button:active{transform:scale(.98)}
+.story{white-space:pre-wrap;line-height:1.8;font-size:17px}
+.small{font-size:12px;color:#b7c3e6}
+.score{margin-top:8px;font-size:14px;color:#38bdf8}
 </style>
 </head>
 <body>
 
-<h1>اختبار تحمّل الضغط</h1>
-<div id="round"></div>
-<div id="timer"></div>
-<div id="scenario"></div>
-<div id="choices"></div>
-<div id="result"></div>
+<h2>🎭 عالم المغامرات</h2>
+<div class="small">اختر أو قل قرارك بصوتك. القصة تتغير حسب اختياراتك.</div>
+
+<div class="card">
+<div id="story" class="story">اضغط "ابدأ المغامرة"</div>
+<div class="score" id="points"></div>
+</div>
+
+<div class="card">
+<button onclick="startGame()">ابدأ المغامرة 🚀</button>
+<button onclick="listen()">جاوب بصوتك 🎤</button>
+<div id="status" class="small"></div>
+</div>
 
 <script>
 
-let الجولة = 1;
-let الحد_الأقصى = 10;
-let المؤقت;
-let الوقت = 12;
+let step = 0;
+let courage = 0;
+let intelligence = 0;
+let kindness = 0;
 
-let الملف = {
-  السرعة: [],
-  المخاطرة: 0,
-  المواجهة: 0,
-  التجنب: 0,
-  الاتساق: 0,
-  اخر_اختيار: null
+const worlds = [
+"في مدينة معلّقة في السماء...",
+"في أعماق بحر غامض...",
+"في صحراء واسعة مليئة بالأسرار...",
+"داخل قلعة قديمة مهجورة..."
+];
+
+const problems = [
+"ظهر ظل غامض يحمل خريطة سرية.",
+"وجدت بابًا ذهبيًا مغلقًا.",
+"سمعت صوت استغاثة بعيد.",
+"ظهر مخلوق صغير يبكي."
+];
+
+const endings = [
+"أصبحت بطل المدينة الجديدة!",
+"اكتشفت سرًا لم يعرفه أحد قبلك.",
+"أنقذت المكان وأصبحت مشهورًا.",
+"تعلمت درسًا لن تنساه أبدًا."
+];
+
+function speak(text){
+speechSynthesis.cancel();
+let u = new SpeechSynthesisUtterance(text);
+u.lang="ar-SA";
+u.rate=0.9;
+speechSynthesis.speak(u);
+}
+
+function startGame(){
+step=1;
+courage=0;
+intelligence=0;
+kindness=0;
+
+let intro = worlds[Math.floor(Math.random()*worlds.length)]
++ "\n\n"
++ problems[Math.floor(Math.random()*problems.length)]
++ "\n\n"
++ "هل تقترب أم تهرب أم تبحث عن حل؟";
+
+document.getElementById("story").innerText=intro;
+updatePoints();
+speak(intro);
+}
+
+function nextStep(choice){
+if(step===1){
+if(choice==="تقترب"){courage+=2;}
+if(choice==="تهرب"){courage-=1;}
+if(choice==="تبحث"){intelligence+=2;}
+
+let text="أكملت الطريق... فجأة ظهر لغز يحتاج حلًا!\n"
++ "هل تحاول حله أم تطلب المساعدة؟";
+
+document.getElementById("story").innerText=text;
+speak(text);
+step=2;
+updatePoints();
+return;
+}
+
+if(step===2){
+if(choice==="تحاول"){intelligence+=2;}
+if(choice==="تطلب"){kindness+=2;}
+
+let text="نجحت في التقدم أكثر...\n"
++ "ظهر مخلوق صغير يحتاج مساعدة.\n"
++ "هل تساعده أم تتجاهله؟";
+
+document.getElementById("story").innerText=text;
+speak(text);
+step=3;
+updatePoints();
+return;
+}
+
+if(step===3){
+if(choice==="تساعد"){kindness+=3;}
+if(choice==="تتجاهل"){courage+=1;}
+
+let text="اقتربت النهاية...\n"
++ endings[Math.floor(Math.random()*endings.length)];
+
+document.getElementById("story").innerText=text;
+speak(text);
+updatePoints();
+step=4;
+return;
+}
+}
+
+function listen(){
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if(!SpeechRecognition){
+document.getElementById("status").innerText="المتصفح لا يدعم المايك. استخدم Chrome.";
+return;
+}
+
+const rec = new SpeechRecognition();
+rec.lang="ar-SA";
+rec.start();
+
+document.getElementById("status").innerText="🎧 أسمعك...";
+
+rec.onresult=function(e){
+let said=e.results[0][0].transcript.trim();
+document.getElementById("status").innerText="سمعت: "+said;
+
+if(said.includes("اقترب")||said.includes("تقترب")) nextStep("تقترب");
+else if(said.includes("اهرب")||said.includes("تهرب")) nextStep("تهرب");
+else if(said.includes("ابحث")||said.includes("تبحث")) nextStep("تبحث");
+else if(said.includes("احاول")||said.includes("تحاول")) nextStep("تحاول");
+else if(said.includes("مساعدة")||said.includes("اطلب")) nextStep("تطلب");
+else if(said.includes("ساعد")||said.includes("تساعد")) nextStep("تساعد");
+else if(said.includes("تجاهل")) nextStep("تتجاهل");
+else document.getElementById("status").innerText="لم أفهم القرار.";
 };
-
-function تشغيل_المؤقت(){
-  الوقت = 12;
-  document.getElementById("timer").innerText = "الوقت المتبقي: " + الوقت;
-  المؤقت = setInterval(()=>{
-    الوقت--;
-    document.getElementById("timer").innerText = "الوقت المتبقي: " + الوقت;
-    if(الوقت <= 0){
-      clearInterval(المؤقت);
-      الجولة_التالية();
-    }
-  },1000);
 }
 
-function اختيار(الحرف, السمات){
-  clearInterval(المؤقت);
-  الملف.السرعة.push(12 - الوقت);
-  الملف.المخاطرة += السمات.مخاطرة;
-  الملف.المواجهة += السمات.مواجهة;
-  الملف.التجنب += السمات.تجنب;
-
-  if(الملف.اخر_اختيار && الملف.اخر_اختيار === الحرف){
-    الملف.الاتساق++;
-  }
-
-  الملف.اخر_اختيار = الحرف;
-  الجولة_التالية();
+function updatePoints(){
+document.getElementById("points").innerText=
+"🦁 الشجاعة: "+courage+
+" | 🧠 الذكاء: "+intelligence+
+" | ❤️ التعاطف: "+kindness;
 }
-
-function توليد_سيناريو(){
-  let النص = "";
-  let الخيارات = "";
-
-  if(الملف.المخاطرة > 4){
-    النص = "استثمرت مبلغًا كبيرًا في مشروع عالي المخاطر، والآن هناك احتمال خسارة. ماذا تفعل؟";
-  } else if(الملف.المواجهة > الملف.التجنب){
-    النص = "أحد أعضاء فريقك يعارضك علنًا أمام الجميع. كيف تتصرف؟";
-  } else {
-    النص = "عميل مهم ينتظر قرارك بسرعة تحت ضغط كبير.";
-  }
-
-  الخيارات += `<button onclick="اختيار('A',{مخاطرة:1,مواجهة:1,تجنب:0})">أتصرف فورًا وأتحمل المسؤولية</button>`;
-  الخيارات += `<button onclick="اختيار('B',{مخاطرة:0,مواجهة:0,تجنب:1})">أؤجل القرار وأراقب الوضع</button>`;
-  الخيارات += `<button onclick="اختيار('C',{مخاطرة:2,مواجهة:1,تجنب:0})">أقوم بخطوة جريئة رغم المخاطر</button>`;
-  الخيارات += `<button onclick="اختيار('D',{مخاطرة:0,مواجهة:0,تجنب:2})">أنسحب من الموقف</button>`;
-
-  document.getElementById("scenario").innerText = النص;
-  document.getElementById("choices").innerHTML = الخيارات;
-}
-
-function الجولة_التالية(){
-  if(الجولة >= الحد_الأقصى){
-    عرض_النتائج();
-    return;
-  }
-  الجولة++;
-  document.getElementById("round").innerText = "الجولة " + الجولة + " من " + الحد_الأقصى;
-  توليد_سيناريو();
-  تشغيل_المؤقت();
-}
-
-function عرض_النتائج(){
-  document.getElementById("choices").innerHTML = "";
-  document.getElementById("scenario").innerHTML = "";
-
-  let متوسط = الملف.السرعة.reduce((a,b)=>a+b,0)/الملف.السرعة.length;
-
-  let تحليل = `
-  <h2>تحليلك تحت الضغط</h2>
-  سرعة القرار: ${متوسط < 5 ? "سريع جدًا" : "متزن"} <br>
-  مستوى المخاطرة: ${الملف.المخاطرة > 10 ? "مرتفع" : "متوسط"} <br>
-  الأسلوب الاجتماعي: ${الملف.المواجهة > الملف.التجنب ? "مواجه" : "متجنب"} <br>
-  درجة الاتساق: ${الملف.الاتساق > 4 ? "ثابت في قراراتك" : "مرن ومتغير"} <br><br>
-  <strong>الخلاصة:</strong><br>
-  ${توليد_خلاصة(متوسط)}
-  `;
-
-  document.getElementById("result").innerHTML = تحليل;
-}
-
-function توليد_خلاصة(متوسط){
-  if(متوسط < 5 && الملف.المخاطرة > 10){
-    return "تميل لاتخاذ قرارات سريعة وجريئة تحت الضغط، لديك قابلية قيادية لكنك قد تتعرض لمخاطر عالية.";
-  }
-  if(الملف.التجنب > الملف.المواجهة){
-    return "تميل إلى تجنب التصعيد والحفاظ على الاستقرار، تفضل الأمان على المجازفة.";
-  }
-  return "تتصرف بتوازن نسبي تحت الضغط وتملك قدرة جيدة على التحكم في المواقف.";
-}
-
-document.getElementById("round").innerText = "الجولة 1 من " + الحد_الأقصى;
-توليد_سيناريو();
-تشغيل_المؤقت();
 
 </script>
+
 </body>
 </html>
