@@ -5,88 +5,188 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>قاموسي الصوتي</title>
 <style>
-body{margin:0;font-family:Tahoma;background:#0f172a;color:#fff;text-align:center;padding:20px}
-h2{margin-bottom:10px}
-button{
-width:200px;height:200px;border-radius:100%;
-border:none;background:#2563eb;color:#fff;
-font-size:22px;margin:20px auto;display:block;
-}
-button:active{transform:scale(.95)}
-#result{margin-top:20px;font-size:24px}
-#status{margin-top:10px;font-size:14px;color:#38bdf8}
+  body{
+    margin:0;
+    font-family:Tahoma, Arial;
+    background:#0f172a;
+    color:#fff;
+    text-align:center;
+    padding:18px;
+  }
+  h2{margin:10px 0 6px}
+  .sub{font-size:12px;color:#b7c3e6;margin-bottom:14px;line-height:1.6}
+  .mic{
+    width:190px;height:190px;border-radius:999px;
+    border:0; cursor:pointer;
+    background:#2563eb;color:#fff;
+    font-size:44px;
+    display:block;margin:14px auto 10px;
+  }
+  .mic:active{transform:scale(.97)}
+  .card{
+    max-width:520px;
+    margin:12px auto;
+    background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:16px;
+    padding:14px;
+  }
+  #result{
+    font-size:34px;
+    margin-top:6px;
+    min-height:44px;
+  }
+  #status{
+    font-size:13px;
+    color:#38bdf8;
+    min-height:18px;
+    margin-top:6px;
+  }
+  .row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    justify-content:center;
+    flex-wrap:wrap;
+  }
+  input[type="range"]{
+    width:min(320px, 90%);
+  }
+  .badge{
+    font-size:12px;
+    color:#b7c3e6;
+    border:1px solid rgba(255,255,255,.16);
+    background:rgba(0,0,0,.18);
+    border-radius:999px;
+    padding:6px 10px;
+  }
 </style>
 </head>
 <body>
 
 <h2>🎤 قاموسي الصوتي</h2>
-<button onclick="startListening()">🎤</button>
+<div class="sub">قل: “أبغى كلمة … بالإنجليزي”</div>
 
-<div id="status"></div>
-<div id="result"></div>
+<button class="mic" onclick="startListening()">🎤</button>
+
+<div class="card">
+  <div class="row">
+    <span class="badge">🐢 بطيء</span>
+    <input id="rate" type="range" min="0.6" max="1.0" step="0.05" />
+    <span class="badge">🙂 طبيعي</span>
+  </div>
+  <div class="sub">سرعة النطق: <span id="rateVal"></span></div>
+
+  <div id="status"></div>
+  <div id="result">—</div>
+</div>
 
 <script>
-
 let DICT = {};
 
 async function loadDictionary(){
-const res = await fetch("./dictionary_ar_en.json", {cache:"no-store"});
-DICT = await res.json();
+  const res = await fetch("./dictionary_ar_en.json", { cache:"no-store" });
+  if(!res.ok) throw new Error("لم أجد ملف القاموس dictionary_ar_en.json");
+  DICT = await res.json();
 }
 
+// تنظيف الجملة لاستخراج الكلمة المقصودة
 function cleanWord(text){
-text = text.replace("أبغى","")
-.replace("ابغى","")
-.replace("كلمة","")
-.replace("بالانجليزي","")
-.replace("الانجليزي","")
-.replace("بالإنجليزي","")
-.trim();
+  if(!text) return "";
+  text = text
+    .replace(/أبغى|ابغى/gi, "")
+    .replace(/كلمة/gi, "")
+    .replace(/بالانجليزي|بالإنجليزي|الانجليزي|إنجليزي|انجليزي/gi, "")
+    .replace(/[؟?!.،,:;"]/g, " ")
+    .trim();
 
-if(text.startsWith("ال")){
-text = text.substring(2);
-}
-return text.trim();
+  // إزالة "الـ" في البداية (اختياري)
+  if(text.startsWith("ال") && text.length > 2){
+    text = text.substring(2);
+  }
+  return text.trim();
 }
 
+// ====== التحكم بالسرعة (من 0.6 إلى 1.0 فقط) ======
+const rateSlider = document.getElementById("rate");
+const rateVal = document.getElementById("rateVal");
+
+function getRate(){
+  // منع أي قيمة أعلى من 1 حتى لو حصل تلاعب
+  const r = Math.min(1.0, Math.max(0.6, parseFloat(rateSlider.value || "0.8")));
+  return r;
+}
+
+function setRateUI(r){
+  const safe = Math.min(1.0, Math.max(0.6, r));
+  rateSlider.value = safe.toFixed(2);
+  rateVal.textContent = safe.toFixed(2);
+  localStorage.setItem("tts_rate", String(safe));
+}
+
+rateSlider.addEventListener("input", () => {
+  setRateUI(getRate());
+});
+
+// نطق إنجليزي بوضوح وببطء حسب السلايدر
 function speakEnglish(word){
-const u = new SpeechSynthesisUtterance(word);
-u.lang="en-US";
-u.rate=0.6;
-speechSynthesis.cancel();
-speechSynthesis.speak(u);
+  if(!word) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(word);
+  u.lang = "en-US";
+  u.rate = getRate();      // 👈 هنا التحكم
+  u.pitch = 1.0;
+  u.volume = 1.0;
+  speechSynthesis.speak(u);
 }
 
 function startListening(){
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if(!SpeechRecognition){
-alert("استخدم متصفح Chrome");
-return;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    alert("يفضّل استخدام Chrome على الجوال.");
+    return;
+  }
+
+  const recog = new SpeechRecognition();
+  recog.lang = "ar-SA";
+  recog.interimResults = false;
+
+  document.getElementById("status").textContent = "🎧 أسمعك...";
+  recog.start();
+
+  recog.onresult = (event) => {
+    const spoken = event.results?.[0]?.[0]?.transcript || "";
+    document.getElementById("status").textContent = "سمعت: " + spoken;
+
+    const arWord = cleanWord(spoken);
+    const enWord = DICT[arWord];
+
+    if(enWord){
+      document.getElementById("result").textContent = enWord;
+      speakEnglish(enWord);
+    }else{
+      document.getElementById("result").textContent = "❌ غير موجودة";
+    }
+  };
+
+  recog.onerror = () => {
+    document.getElementById("status").textContent = "⚠️ تحقق من إذن المايك.";
+  };
 }
 
-const recog = new SpeechRecognition();
-recog.lang="ar-SA";
-recog.start();
+// بدء التشغيل
+window.onload = async () => {
+  // سرعة افتراضية + حفظ
+  const saved = parseFloat(localStorage.getItem("tts_rate") || "0.8");
+  setRateUI(isFinite(saved) ? saved : 0.8);
 
-document.getElementById("status").innerText="🎧 أسمعك...";
-
-recog.onresult=function(event){
-let spoken = event.results[0][0].transcript;
-document.getElementById("status").innerText="سمعت: "+spoken;
-
-let word = cleanWord(spoken);
-
-if(DICT[word]){
-document.getElementById("result").innerText=DICT[word];
-speakEnglish(DICT[word]);
-}else{
-document.getElementById("result").innerText="❌ الكلمة غير موجودة";
-}
+  try{
+    await loadDictionary();
+    document.getElementById("status").textContent = "جاهز ✅";
+  }catch(e){
+    document.getElementById("status").textContent = "خطأ: " + e.message;
+  }
 };
-}
-
-window.onload = loadDictionary;
-
 </script>
 
 </body>
