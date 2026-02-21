@@ -156,7 +156,7 @@ function startListening(){
 
   recog.onresult = (event) => {
     const spoken = event.results?.[0]?.[0]?.transcript || "";
-    document.getElementById("status").textContent = "سمعت: " + spoken;
+    document.getElementById("status").textContent = "الكلمة: " + spoken;
 
     const arWord = cleanWord(spoken);
     const enWord = DICT[arWord];
