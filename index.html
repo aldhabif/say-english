@@ -52,7 +52,7 @@ return text.trim();
 function speakEnglish(word){
 const u = new SpeechSynthesisUtterance(word);
 u.lang="en-US";
-u.rate=0.75;
+u.rate=0.70;
 speechSynthesis.cancel();
 speechSynthesis.speak(u);
 }
